@@ -40,6 +40,17 @@ def init_db():
     )
     ''')
 
+
+
+    cursor.execute('''
+    CREATE TABLE Usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    rol TEXT NOT NULL -- Puede ser 'admin' o 'user'
+    );
+  ''')
+
     conn.commit()
     conn.close()
     print("¡Base de datos y tablas creadas con éxito!")

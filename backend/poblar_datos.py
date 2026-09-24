@@ -65,7 +65,7 @@ def cargar_excel_a_sqlite():
     conn = sqlite3.connect('hospital.db')
     
     # Asegúrate de que esta ruta apunte a la carpeta donde están tus .xlsx
-    ruta_dataset = r'Hack4Life---Hackaton\backend\poblar_datos.py' 
+    ruta_dataset = r'C:\Users\ASUS\Documents\Hack4Life---Hackaton\Hack4Life---Hackaton\backend\Datos' 
     
     archivos = [
         'Atencion.xlsx',
