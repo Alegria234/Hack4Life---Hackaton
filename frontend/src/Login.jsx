@@ -19,25 +19,28 @@ export default function Login({ onLoginSuccess }) {
         body: JSON.stringify({ username, password })
       });
 
-      if (!response.ok) throw new Error('Credenciales inválidas');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Credenciales inválidas');
+      }
       
       const data = await response.json();
       
-      // Pasamos los datos del usuario (incluyendo el ROL) al componente principal
+      // Enviamos el usuario autenticado (id, username, rol)
       onLoginSuccess(data.usuario);
       
     } catch (err) {
-      setError('Usuario o contraseña incorrectos');
+      setError(err.message || 'Usuario o contraseña incorrectos');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ height: '100vh', width: '100vw', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a', fontFamily: 'system-ui' }}>
-      <div style={{ backgroundColor: '#1e293b', padding: '40px', borderRadius: '16px', border: '1px solid #334155', width: '100%', maxWidth: '400px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+    <div style={{ height: '100vh', width: '100vw', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a', fontFamily: 'system-ui', boxSizing: 'border-box' }}>
+      <div style={{ backgroundColor: '#1e293b', padding: '40px', borderRadius: '16px', border: '1px solid #334155', width: '100%', maxWidth: '400px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', boxSizing: 'border-box' }}>
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{ width: '60px', height: '60px', backgroundColor: '#38bdf8', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '30px', margin: '0 auto 15px auto' }}>+</div>
+          <div style={{ width: '60px', height: '60px', backgroundColor: '#38bdf8', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '30px', margin: '0 auto 15px auto', color: '#0f172a', fontWeight: 'bold' }}>+</div>
           <h2 style={{ color: '#f8fafc', margin: 0 }}>HOSPITAL SAN JOSÉ</h2>
           <p style={{ color: '#94a3b8', margin: '5px 0 0 0', fontSize: '14px' }}>Acceso al Centro de Mando</p>
         </div>
@@ -45,11 +48,25 @@ export default function Login({ onLoginSuccess }) {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
             <label style={{ display: 'block', color: '#cbd5e1', fontSize: '13px', marginBottom: '8px' }}>Usuario</label>
-            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#f8fafc', outline: 'none' }} placeholder="Ej: admin_medico" />
+            <input 
+              type="text" 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)} 
+              required 
+              style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#f8fafc', outline: 'none', boxSizing: 'border-box' }} 
+              placeholder="Ej: medico o admin" 
+            />
           </div>
           <div>
             <label style={{ display: 'block', color: '#cbd5e1', fontSize: '13px', marginBottom: '8px' }}>Contraseña</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#f8fafc', outline: 'none' }} placeholder="••••••••" />
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              required 
+              style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#f8fafc', outline: 'none', boxSizing: 'border-box' }} 
+              placeholder="••••••••" 
+            />
           </div>
 
           {error && <div style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', backgroundColor: 'rgba(239,68,68,0.1)', padding: '10px', borderRadius: '6px' }}>{error}</div>}

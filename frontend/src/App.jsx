@@ -17,8 +17,10 @@ function App() {
       rol: 'ia',
       texto: '¡Hola! Con gusto te ayudaré. Por favor, selecciona la opción que necesitas o escribe tu consulta:',
       opcionesRapidas: [
-        'Agendar Cirugía', 'Ver Estado de Triage', 
-        'Citas Médicas', 'Información General'
+        'Ver Estado de Triage', 
+        'Pacientes en Urgencias', 
+        'Medicamentos sin stock', 
+        'Cirugías programadas'
       ],
       mostrarWidget: true
     }
@@ -54,13 +56,25 @@ function App() {
         body: JSON.stringify({ pregunta: textoPregunta })
       });
 
-      if (!response.ok) throw new Error(`Error: ${response.status}`);
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
       const data = await response.json();
       
-      setMensajes((prev) => [...prev, { rol: 'ia', resultados: data.resultados }]);
+      // Mantenemos la respuesta completa (texto explicativo + tabla de resultados + SQL)
+      setMensajes((prev) => [
+        ...prev, 
+        { 
+          rol: 'ia', 
+          texto: data.recomendacion_agente || "Consulta ejecutada con éxito.",
+          resultados: data.resultados,
+          sql: data.sql_ejecutado
+        }
+      ]);
     } catch (err) {
       console.error(err);
-      setMensajes((prev) => [...prev, { rol: 'ia', error: "Error de conexión con el servidor. Verifica que FastAPI esté corriendo." }]);
+      setMensajes((prev) => [
+        ...prev, 
+        { rol: 'ia', error: "Error de conexión con el servidor. Verifica que FastAPI esté corriendo en el puerto 8000." }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -167,7 +181,7 @@ function App() {
         <div className="dashboard-content chat-scroll">
 
           {/* MENSAJE EXCLUSIVO PARA ADMINISTRADORES */}
-          {usuarioActual.rol === 'admin' && (
+          {String(usuarioActual.rol).toLowerCase() === 'admin' && (
             <div style={{ padding: '15px 20px', backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px dashed #38bdf8', marginBottom: '25px', borderRadius: '10px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
                <span style={{fontSize: '20px'}}>🛠️</span>
                <strong>Modo Administrador Activo:</strong> Tienes acceso a configuraciones críticas y métricas avanzadas del hospital.
@@ -306,6 +320,7 @@ function App() {
                     </div>
                   </div>
                 )}
+
                 {msg.opcionesRapidas && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px', paddingLeft: '32px' }}>
                     {msg.opcionesRapidas.map((opcion, i) => (
@@ -313,7 +328,8 @@ function App() {
                     ))}
                   </div>
                 )}
-                {msg.resultados && msg.resultados.length > 0 && (
+
+                {msg.resultados && Array.isArray(msg.resultados) && msg.resultados.length > 0 && (
                   <div className="chat-scroll" style={{ marginLeft: msg.rol === 'ia' ? '32px' : '0', marginTop: '10px', maxWidth: msg.rol === 'ia' ? 'calc(100% - 32px)' : '100%', width: '100%', maxHeight: '250px', overflowX: 'auto', overflowY: 'auto', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                     <table className="custom-table" style={{ fontSize: '12px' }}>
                       <thead>
@@ -327,7 +343,7 @@ function App() {
                         {msg.resultados.map((fila, i) => (
                           <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
                             {Object.values(fila).map((valor, j) => (
-                              <td key={j} style={{ padding: '8px 12px', wordBreak: 'break-word', minWidth: '100px', color: '#f8fafc' }}>{valor}</td>
+                              <td key={j} style={{ padding: '8px 12px', wordBreak: 'break-word', minWidth: '100px', color: '#f8fafc' }}>{valor !== null ? String(valor) : '-'}</td>
                             ))}
                           </tr>
                         ))}
@@ -337,10 +353,11 @@ function App() {
                 )}
               </div>
             ))}
+
             {loading && (
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                  <div style={{ width: '24px', height: '24px', backgroundColor: '#38bdf8', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '12px' }}>🤖</div>
-                 <div style={{ padding: '10px 14px', backgroundColor: '#334155', color: '#94a3b8', borderRadius: '16px 16px 16px 4px', fontSize: '13px', fontStyle: 'italic', animation: 'pulse 1.5s infinite' }}>Consultando BD...</div>
+                 <div style={{ padding: '10px 14px', backgroundColor: '#334155', color: '#94a3b8', borderRadius: '16px 16px 16px 4px', fontSize: '13px', fontStyle: 'italic' }}>Consultando base de datos...</div>
               </div>
             )}
             <div ref={chatEndRef} />
