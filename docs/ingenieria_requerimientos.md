@@ -48,7 +48,7 @@ Esta fragmentación proviene de datos aislados en múltiples bases de datos no i
 | **RNF-01**<br>**RNF-02** | Seguridad y Sanitización SQL | **US-05: Capa de Seguridad y Sanitización**<br>Como administrador del sistema, quiero asegurar que las consultas del LLM sean seguras y no alteren la base de datos ni expongan PII. | • Bloqueo de sentencias `DROP`, `DELETE`, `UPDATE`, `INSERT`.<br>• Ocultación/Anulamiento de datos sensibles de pacientes (PII) en los resultados. | **Alta** | 
 | **RF-03** | Consultas de Contingencia (Fallback) | **US-06: Mecanismo de Fallback por Reglas/SQL Fijo**<br>Como usuario, quiero recibir respuestas a las 4 preguntas principales de la hackatón aunque la API de la IA no responda. | • Mapeo de 4 preguntas clave predefinidas a consultas SQL directas en el backend.<br>• Activación automática si el LLM falla o tarda más del tiempo límite. | **Alta** |
 | **RF-05** | Motor de Alertas | **US-07: Módulo de Alertas Preventivas**<br>Como jefe de servicio, quiero recibir alertas sobre stock crítico de medicamentos o saturación de camas. | • Indicadores de alerta visual (color rojo/amarillo) en el Dashboard.<br>• Sugerencias automáticas adjuntas al resultado del chat. | **Media** |
-
+    
 ---
 
 ## 2. Planificación de Sprints
