@@ -2,10 +2,11 @@ import os
 import sqlite3
 from typing import Optional
 from pathlib import Path
-import pandas as pd # type: ignore[reportMissingModuleSource]
-import google.generativeai as genai # type: ignore[reportMissingModuleSource]
+import pandas as pd  # type: ignore[reportMissingModuleSource]
+import google.generativeai as genai  # type: ignore[reportMissingModuleSource]
 
 from SecurityManager import SecurityManager
+from QueryEngine import QueryEngine
 
 class AIService:
     def __init__(self, db_name=None, key: Optional[str] = None):
@@ -16,6 +17,9 @@ class AIService:
 
         BASE_DIR = Path(__file__).resolve().parent.parent
         self.db_path = str(db_name) if db_name else str(BASE_DIR / "data" / "hospital.db")
+
+        # Instancia del motor desacoplado de consultas
+        self.query_engine = QueryEngine(self.db_path)
         
         genai.configure(api_key=self.key)
         self.model = genai.GenerativeModel('gemini-1.5-flash')
@@ -32,8 +36,14 @@ class AIService:
         """
 
     def ejecutar_consulta_conversacional(self, pregunta: str) -> dict:
+        # 1. Filtro preventivo de PII / Inyecciones SQL vía QueryEngine
+        respuesta_bloqueo = self.query_engine.evaluar_seguridad_pregunta(pregunta)
+        if respuesta_bloqueo:
+            return respuesta_bloqueo
+
         pregunta_lower = pregunta.lower()
         
+        # PROMPT DE GEMINI INTRACTO
         instrucciones = f"""
             Eres un analista de datos de un hospital experto en SQLite. 
             Devuelve EXCLUSIVAMENTE una consulta SQL válida que responda a la pregunta del usuario.
@@ -56,45 +66,14 @@ class AIService:
             origen_respuesta = "Generado dinámicamente por Gemini IA"
 
         except Exception as e:
-            print(f"Respuesta {e}.")
+            print(f"Respuesta {e}. Activando motor dinámico de contingencia.")
             origen_respuesta = "Generado por Contingencia (Filtro de Seguridad / Límite de API)"
             
-            if "urgencias" in pregunta_lower:
-                sql_generado = "SELECT NombreSubgrupoCama, COUNT(OidIngreso) as TotalPacientes FROM Ingresos WHERE NombreSubgrupoCama LIKE '%URGENCIAS%' GROUP BY NombreSubgrupoCama;"
-            elif "pediatria" in pregunta_lower or "pediatría" in pregunta_lower:
-                sql_generado = "SELECT NombreDiagnostico, COUNT(OidIngreso) as TotalCasos FROM Ingresos WHERE NombreSubgrupoCama LIKE '%PEDIATRIA%' GROUP BY NombreDiagnostico ORDER BY TotalCasos DESC LIMIT 5;"
-            elif "medicamento" in pregunta_lower or "stock" in pregunta_lower or "insumo" in pregunta_lower:
-                sql_generado = "SELECT NombreServicio, SUM(Cantidad) as TotalConsumido FROM Servicios WHERE NombreServicio IS NOT NULL GROUP BY NombreServicio ORDER BY TotalConsumido DESC LIMIT 5;"
-            elif "triage" in pregunta_lower:
-                sql_generado = "SELECT ClasificacionTriage, COUNT(*) as TotalPacientes FROM Triage GROUP BY ClasificacionTriage;"
-            elif "cirug" in pregunta_lower:
-                sql_generado = "SELECT CodigoServicio, COUNT(*) as TotalProgramadas FROM ProgramacionCirugia GROUP BY CodigoServicio LIMIT 5;"
-            else:
-                sql_generado = "SELECT NombreSubgrupoCama, COUNT(CodigoCama) as CamasOcupadas FROM Ingresos GROUP BY NombreSubgrupoCama;"
+            # Obtención de query dinámica desde el QueryEngine
+            sql_generado = self.query_engine.obtener_sql_contingencia(pregunta)
 
-
-        conn = sqlite3.connect(self.db_path)
-
-        try:
-            df_resultados = pd.read_sql_query(sql_generado, conn)
-
-            df_anonimo = SecurityManager.anonimizar_dataframe(df_resultados)
-
-            df_limpio = df_anonimo.fillna("")
-            resultados_datos = df_limpio.to_dict(orient="records")
-            
-            conn.close()
-            
-            return {
-                "pregunta_recibida": pregunta,
-                "sql_ejecutado": sql_generado,
-                "resultados": resultados_datos,
-                "recomendacion_agente": origen_respuesta,
-                "grafico_sugerido": "table"
-            }
-        except Exception as e_sql:
-            conn.close()
-            raise e_sql
+        # 2. Delegar la ejecución, anonimización y formateo al QueryEngine
+        return self.query_engine.ejecutar_sql_y_formatear(sql_generado, pregunta, origen_respuesta)
 
     def obtener_alertas_sistema(self) -> dict:
         conn = sqlite3.connect(self.db_path)

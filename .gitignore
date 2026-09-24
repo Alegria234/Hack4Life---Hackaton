@@ -4,5 +4,6 @@ backend/__pycache__/
 backend/*.pyc
 backend/.env
 
-echo "data/hospital.db" >> .gitignore
-echo "*.db" >> .gitignore
+# Base de datos
+data/hospital.db
+*.db
