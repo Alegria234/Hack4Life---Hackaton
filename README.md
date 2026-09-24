@@ -6,7 +6,6 @@
 ![Vite](https://img.shields.io/badge/Vite-Build_Tool-646CFF?style=for-the-badge&logo=vite&logoColor=FFD62E)
 ![Python](https://img.shields.io/badge/Python-Data_Processing-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![Pandas](https://img.shields.io/badge/Pandas-Analytics-150458?style=for-the-badge&logo=pandas&logoColor=white)
-![Go](https://img.shields.io/badge/Go-Services-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
 
 
@@ -22,6 +21,4 @@ El desarrollo de esta solución está respaldado por la siguiente estructura doc
 2. [**Arquitectura de Software**](./docs/arquitectura_software.md)
 3. [**Módulo de Tecnologías**](./docs/tecnologias.md)
 4. [**Conclusiones**](./docs/conclusiones.md)
-
-## ⚙️ Instalación 
 
