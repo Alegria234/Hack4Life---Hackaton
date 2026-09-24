@@ -2,18 +2,17 @@ import os
 import sqlite3
 from typing import Optional
 from pathlib import Path
-import pandas as pd  # type: ignore[reportMissingModuleSource]
-import google.generativeai as genai  # type: ignore[import-not-found]
+import pandas as pd # type: ignore[reportMissingModuleSource]
+import google.generativeai as genai # type: ignore[reportMissingModuleSource]
 
 from SecurityManager import SecurityManager
 
 class AIService:
     def __init__(self, db_name=None, key: Optional[str] = None):
-        # Lee la clave de la variable de entorno cargada desde .env
         self.key = key or os.getenv("GEMINI_API_KEY")
 
         if not self.key:
-            raise ValueError("❌ No se encontró la API Key de Gemini en las variables de entorno o .env")
+            raise ValueError("❌ No se encontró la API Key, se encuentra .env")
 
         BASE_DIR = Path(__file__).resolve().parent.parent
         self.db_path = str(db_name) if db_name else str(BASE_DIR / "data" / "hospital.db")
@@ -54,7 +53,6 @@ class AIService:
             sql_bruto = respuesta_ia.text.replace("sql", "").replace("```", "").strip()
 
             sql_generado = SecurityManager.validar_sql_seguro(sql_bruto)
-
             origen_respuesta = "Generado dinámicamente por Gemini IA"
 
         except Exception as e:
@@ -68,7 +66,6 @@ class AIService:
             else:
                 sql_generado = "SELECT NombreSubgrupoCama, COUNT(CodigoCama) as CamasOcupadas FROM Ingresos GROUP BY NombreSubgrupoCama;"
 
-
         conn = sqlite3.connect(self.db_path)
 
         try:
@@ -76,7 +73,6 @@ class AIService:
 
             df_anonimo = SecurityManager.anonimizar_dataframe(df_resultados)
 
-            # Reemplazar NaN por cadenas vacías para evitar errores de serialización JSON en FastAPI
             df_limpio = df_anonimo.fillna("")
             resultados_datos = df_limpio.to_dict(orient="records")
             
@@ -98,7 +94,6 @@ class AIService:
         alertas = []
 
         try:
-
             sql_camas = """
                 SELECT NombreSubgrupoCama, COUNT(*) as TotalPacientes
                 FROM Ingresos

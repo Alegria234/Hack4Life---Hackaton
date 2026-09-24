@@ -1,12 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from pydantic import BaseModel  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 
 from DatabaseManager import DatabaseManager
 from AIService import AIService
+from SecurityManager import SecurityManager, LoginData
 
-# Carga las variables del archivo .env (incluyendo GEMINI_API_KEY)
 load_dotenv()
 
 app = FastAPI(
@@ -22,17 +22,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Instancias de Servicios
 db_manager = DatabaseManager()
 ai_service = AIService()
+security_manager = SecurityManager(db_path=ai_service.db_path)
 
 class QueryRequest(BaseModel):
     pregunta: str
 
-# --- ENDPOINTS ---
+# --- EVENTOS ---
 
 @app.on_event("startup")
 def startup_db():
     db_manager.init_db()
+    security_manager.init_usuarios_db()
+
+# --- ENDPOINTS ---
+
+@app.post("/api/login")
+def login(datos: LoginData):
+    usuario_autenticado = security_manager.autenticar_usuario(datos.username, datos.password)
+    return {
+        "mensaje": "Login exitoso",
+        "usuario": usuario_autenticado,
+        "redirect": "/chat" if usuario_autenticado["rol"].lower() == "medico" else "/dashboard"
+    }
 
 @app.post("/api/query")
 def process_query(request: QueryRequest):

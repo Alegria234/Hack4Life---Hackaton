@@ -103,7 +103,7 @@ class DatabaseManager:
 
                 df = pd.read_excel(ruta_completa, engine='openpyxl')
                 if df.empty:
-                    print(f"⚠️ El archivo {archivo} está vacío, se omite.")
+                    print(f"⚠️ El archivo {archivo} está vacíos.")
                     continue
 
                 df.columns = df.columns.astype(str).str.strip()

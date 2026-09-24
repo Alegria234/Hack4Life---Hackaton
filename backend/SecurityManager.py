@@ -1,6 +1,14 @@
 import re
-import pandas as pd  # type: ignore[reportMissingModuleSource]
-import numpy as np
+import sqlite3
+import pandas as pd  # type: ignore
+import numpy as np  # type: ignore
+from passlib.context import CryptContext  # type: ignore
+from pydantic import BaseModel  # type: ignore
+from fastapi import HTTPException  # type: ignore
+
+class LoginData(BaseModel):
+    username: str
+    password: str
 
 class SecurityManager:
 
@@ -10,6 +18,66 @@ class SecurityManager:
     ]
 
     PII_COLUMNS = ['nombrepaciente', 'idpaciente', 'idpaciente2', 'tipodocumento']
+
+    def __init__(self, db_path: str = "data/hospital.db"):
+        self.db_path = db_path
+        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    def obtener_hash_password(self, password: str) -> str:
+        """Genera el hash Bcrypt de una contraseña en texto plano."""
+        return self.pwd_context.hash(password)
+
+    def verificar_password(self, plain_password: str, hashed_password: str) -> bool:
+        """Compara una contraseña en texto plano contra su hash."""
+        return self.pwd_context.verify(plain_password, hashed_password)
+
+    def init_usuarios_db(self):
+        """Crea la tabla Usuarios si no existe y siembra credenciales de prueba."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                rol TEXT NOT NULL
+            )
+        """)
+        
+        cursor.execute("SELECT COUNT(*) FROM Usuarios")
+        if cursor.fetchone()[0] == 0:
+            usuarios_iniciales = [
+                ("medico", self.obtener_hash_password("1234"), "medico"),
+                ("admin", self.obtener_hash_password("1234"), "admin")
+            ]
+            cursor.executemany("""
+                INSERT INTO Usuarios (username, password_hash, rol) VALUES (?, ?, ?)
+            """, usuarios_iniciales)
+            conn.commit()
+            
+        conn.close()
+
+    def autenticar_usuario(self, username: str, password: str) -> dict:
+        """Verifica credenciales y retorna los datos del usuario o lanza HTTPException."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "SELECT id, username, password_hash, rol FROM Usuarios WHERE username = ?", 
+            (username,)
+        )
+        usuario = cursor.fetchone()
+        conn.close()
+
+        if not usuario or not self.verificar_password(password, usuario[2]):
+            raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+        return {
+            "id": usuario[0],
+            "username": usuario[1],
+            "rol": usuario[3]  # 'admin' o 'medico'
+        }
 
     @classmethod
     def validar_sql_seguro(cls, sql_query: str) -> str:
