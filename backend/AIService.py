@@ -56,15 +56,22 @@ class AIService:
             origen_respuesta = "Generado dinámicamente por Gemini IA"
 
         except Exception as e:
-            print(f"⚠️ Alerta API/Seguridad: {e}. Activando contingencia automática.")
+            print(f"Respuesta {e}.")
             origen_respuesta = "Generado por Contingencia (Filtro de Seguridad / Límite de API)"
             
             if "urgencias" in pregunta_lower:
                 sql_generado = "SELECT NombreSubgrupoCama, COUNT(OidIngreso) as TotalPacientes FROM Ingresos WHERE NombreSubgrupoCama LIKE '%URGENCIAS%' GROUP BY NombreSubgrupoCama;"
             elif "pediatria" in pregunta_lower or "pediatría" in pregunta_lower:
                 sql_generado = "SELECT NombreDiagnostico, COUNT(OidIngreso) as TotalCasos FROM Ingresos WHERE NombreSubgrupoCama LIKE '%PEDIATRIA%' GROUP BY NombreDiagnostico ORDER BY TotalCasos DESC LIMIT 5;"
+            elif "medicamento" in pregunta_lower or "stock" in pregunta_lower or "insumo" in pregunta_lower:
+                sql_generado = "SELECT NombreServicio, SUM(Cantidad) as TotalConsumido FROM Servicios WHERE NombreServicio IS NOT NULL GROUP BY NombreServicio ORDER BY TotalConsumido DESC LIMIT 5;"
+            elif "triage" in pregunta_lower:
+                sql_generado = "SELECT ClasificacionTriage, COUNT(*) as TotalPacientes FROM Triage GROUP BY ClasificacionTriage;"
+            elif "cirug" in pregunta_lower:
+                sql_generado = "SELECT CodigoServicio, COUNT(*) as TotalProgramadas FROM ProgramacionCirugia GROUP BY CodigoServicio LIMIT 5;"
             else:
                 sql_generado = "SELECT NombreSubgrupoCama, COUNT(CodigoCama) as CamasOcupadas FROM Ingresos GROUP BY NombreSubgrupoCama;"
+
 
         conn = sqlite3.connect(self.db_path)
 
