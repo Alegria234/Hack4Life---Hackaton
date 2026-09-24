@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException  # type: ignore
-from fastapi.middleware.cors import CORSMiddleware  # type: ignore
-from pydantic import BaseModel  # type: ignore
-from dotenv import load_dotenv  # type: ignore
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from dotenv import load_dotenv
 
 from DatabaseManager import DatabaseManager
 from AIService import AIService
@@ -22,7 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Instancias de Servicios
 db_manager = DatabaseManager()
 ai_service = AIService()
 security_manager = SecurityManager(db_path=ai_service.db_path)
@@ -30,14 +29,10 @@ security_manager = SecurityManager(db_path=ai_service.db_path)
 class QueryRequest(BaseModel):
     pregunta: str
 
-# --- EVENTOS ---
-
 @app.on_event("startup")
 def startup_db():
     db_manager.init_db()
     security_manager.init_usuarios_db()
-
-# --- ENDPOINTS ---
 
 @app.post("/api/login")
 def login(datos: LoginData):
@@ -54,14 +49,6 @@ def process_query(request: QueryRequest):
         return ai_service.ejecutar_consulta_conversacional(request.pregunta)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error procesando la consulta: {str(e)}")
-
-@app.post("/api/admin/poblar-datos")
-def poblar_datos():
-    try:
-        db_manager.cargar_excel_a_sqlite()
-        return {"status": "success", "message": "Proceso de ingesta finalizado."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/alertas")
 def get_alertas():

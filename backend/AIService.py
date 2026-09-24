@@ -1,9 +1,11 @@
 import os
 import sqlite3
+import importlib
 from typing import Optional
 from pathlib import Path
-import pandas as pd  # type: ignore[reportMissingModuleSource]
-import google.generativeai as genai  # type: ignore[reportMissingModuleSource]
+import pandas as pd
+
+genai = importlib.import_module("google.generativeai")
 
 from SecurityManager import SecurityManager
 from QueryEngine import QueryEngine
@@ -13,16 +15,15 @@ class AIService:
         self.key = key or os.getenv("GEMINI_API_KEY")
 
         if not self.key:
-            raise ValueError("❌ No se encontró la API Key, se encuentra .env")
+            raise ValueError("❌ No se encontró la API Key en las variables de entorno.")
 
         BASE_DIR = Path(__file__).resolve().parent.parent
         self.db_path = str(db_name) if db_name else str(BASE_DIR / "data" / "hospital.db")
 
-        # Instancia del motor desacoplado de consultas
         self.query_engine = QueryEngine(self.db_path)
         
         genai.configure(api_key=self.key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-3.6-flash')
         
         self.esquema_bd = """
         Base de datos SQLite con las siguientes tablas y sus columnas exactas:
@@ -36,18 +37,17 @@ class AIService:
         """
 
     def ejecutar_consulta_conversacional(self, pregunta: str) -> dict:
-        # 1. Filtro preventivo de PII / Inyecciones SQL vía QueryEngine
         respuesta_bloqueo = self.query_engine.evaluar_seguridad_pregunta(pregunta)
         if respuesta_bloqueo:
             return respuesta_bloqueo
 
         pregunta_lower = pregunta.lower()
-        
-        # PROMPT DE GEMINI INTRACTO
+
         instrucciones = f"""
-            Eres un analista de datos de un hospital experto en SQLite. 
-            Devuelve EXCLUSIVAMENTE una consulta SQL válida que responda a la pregunta del usuario.
-            No incluyas explicaciones ni formato markdown (sql). SOLO el texto de la consulta.
+            Eres un analista de datos de un hospital experto en SQLite.
+            
+            1. Si el usuario saluda o realiza una pregunta casual (ej: "hola", "quién eres"), responde de forma amable con el prefijo "TEXTO:".
+            2. Si la pregunta requiere datos, devuelve EXCLUSIVAMENTE una consulta SQL válida que responda a la pregunta.
             
             Esquema: {self.esquema_bd}
             
@@ -60,19 +60,27 @@ class AIService:
 
         try:
             respuesta_ia = self.model.generate_content(instrucciones)
-            sql_bruto = respuesta_ia.text.replace("sql", "").replace("```", "").strip()
+            texto_bruto = respuesta_ia.text.strip()
 
+            if texto_bruto.startswith("TEXTO:"):
+                mensaje = texto_bruto.replace("TEXTO:", "").strip()
+                return {
+                    "pregunta_recibida": pregunta,
+                    "sql_ejecutado": "N/A - Conversacional",
+                    "resultados": [{"Respuesta": mensaje}],
+                    "recomendacion_agente": "Generado por Gemini IA",
+                    "grafico_sugerido": "text"
+                }
+
+            sql_bruto = texto_bruto.replace("sql", "").replace("```", "").strip()
             sql_generado = SecurityManager.validar_sql_seguro(sql_bruto)
             origen_respuesta = "Generado dinámicamente por Gemini IA"
 
         except Exception as e:
-            print(f"Respuesta {e}. Activando motor dinámico de contingencia.")
+            print(f"⚠️ Alerta API: {e}. Activando contingencia.")
             origen_respuesta = "Generado por Contingencia (Filtro de Seguridad / Límite de API)"
-            
-            # Obtención de query dinámica desde el QueryEngine
             sql_generado = self.query_engine.obtener_sql_contingencia(pregunta)
 
-        # 2. Delegar la ejecución, anonimización y formateo al QueryEngine
         return self.query_engine.ejecutar_sql_y_formatear(sql_generado, pregunta, origen_respuesta)
 
     def obtener_alertas_sistema(self) -> dict:
@@ -99,49 +107,9 @@ class AIService:
                     "valor": int(row["TotalPacientes"])
                 })
 
-            try:
-                sql_meds = """
-                    SELECT NombreServicio, SUM(Cantidad) as TotalConsumido
-                    FROM Servicios
-                    WHERE NombreServicio IS NOT NULL
-                    GROUP BY NombreServicio
-                    ORDER BY TotalConsumido DESC
-                    LIMIT 5;
-                """
-                df_meds = pd.read_sql_query(sql_meds, conn)
-            except Exception:
-                sql_meds = """
-                    SELECT NombreServicio, SUM(Cantidad) as TotalConsumido
-                    FROM MedicamentoInsumo
-                    WHERE NombreServicio IS NOT NULL
-                    GROUP BY NombreServicio
-                    ORDER BY TotalConsumido DESC
-                    LIMIT 5;
-                """
-                df_meds = pd.read_sql_query(sql_meds, conn)
-
-            for _, row in df_meds.iterrows():
-                cant = int(row["TotalConsumido"]) if pd.notnull(row["TotalConsumido"]) else 0
-                alertas.append({
-                    "tipo": "MEDICAMENTO_INSUMO",
-                    "nivel": "ADVERTENCIA",
-                    "area": str(row["NombreServicio"]),
-                    "mensaje": f"Consumo crítico de insumo/servicio '{row['NombreServicio']}': {cant} unidades.",
-                    "valor": cant
-                })
-
             conn.close()
-            return {
-                "total_alertas": len(alertas),
-                "alertas": alertas
-            }
-
+            return {"total_alertas": len(alertas), "alertas": alertas}
         except Exception as e:
             if conn:
                 conn.close()
-            print(f"Error calculando alertas: {e}")
-            return {
-                "total_alertas": 0,
-                "alertas": [],
-                "error": str(e)
-            }
+            return {"total_alertas": 0, "alertas": [], "error": str(e)}
